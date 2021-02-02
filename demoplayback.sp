@@ -90,11 +90,11 @@ methodmap Bot < StringMap {
 			    	player.GetString("name", name, 32);
 
 					int fFlags = player.GetInt("fFlags");
-					
 					int health = player.GetInt("health");
 					int armor = player.GetInt("armor");
-					int helmet = player.GetInt("hasHelmet");
-					int defuser = player.GetInt("hasDefuser");
+					bool helmet = player.GetBool("hasHelmet");
+					bool defuser = player.GetBool("hasDefuser");
+					int lifeState = player.GetInt("lifeState");
 					
 			    	float vel[3];
 			    	float pos[3];
@@ -126,6 +126,7 @@ methodmap Bot < StringMap {
 					this.SetValue("armor", armor);
 					this.SetValue("helmet", helmet);
 					this.SetValue("defuser", defuser);
+					this.SetValue("lifeState", lifeState);
 					
 					delete viewJSON;
 					delete velJSON; 
@@ -148,8 +149,10 @@ methodmap Bot < StringMap {
 		int fFlags;
     	int health;
     	int armor;
-    	int helmet;
-    	int defuser;
+    	bool helmet;
+    	bool defuser;
+    	int lifeState;
+    	
     	
     	this.GetString("name", name, 32);
     	this.GetValue("clientID", clientID);
@@ -161,6 +164,8 @@ methodmap Bot < StringMap {
     	this.GetValue("health", health);
     	this.GetValue("helmet", helmet);
     	this.GetValue("defuser", defuser);
+    	this.GetValue("lifeState", lifeState);
+    	
     	if(clientID > 0){ 	
 			GetClientName(clientID, currName, 32);	
 			
@@ -168,22 +173,29 @@ methodmap Bot < StringMap {
 				SetClientName(clientID, name);
 			}
 			
-			if(health == 0 && IsPlayerAlive(clientID)){
+			if(lifeState != 0 && IsPlayerAlive(clientID)){
 				ForcePlayerSuicide(clientID);
+			} else if(lifeState == 0 && !IsPlayerAlive(clientID)) {
+				CS_RespawnPlayer(clientID);
 			}
 						
 			int hasHelmet = 0;
 			GetEntProp(clientID, Prop_Send, "m_bHasHelmet", hasHelmet);	
 			
-			if(helmet == 1 && hasHelmet == 0){
-				FakeClientCommand(clientID, "give item_assaultsuit");
-				PrintToServer("Give Helmet to Client %d", clientID);
+			if(helmet){
+				SetEntProp(clientID, Prop_Send, "m_bHasHelmet", 1);
+			} else {
+				SetEntProp(clientID, Prop_Send, "m_bHasHelmet", 0);
+			}
+			
+			if(defuser){
+				SetEntProp(clientID, Prop_Send, "m_bHasDefuser", 1);
+			} else {
+				SetEntProp(clientID, Prop_Send, "m_bHasDefuser", 0);
 			}
 						
 			SetEntityHealth(clientID, health);
 			SetEntProp(clientID, Prop_Data, "m_ArmorValue", armor);
-			//SetEntProp(clientID, Prop_Send, "m_bHasDefuser", defuser);
-			//SetEntProp(clientID, Prop_Send, "m_bHasHelmet", helmet);
 			SetEntProp(clientID, Prop_Data, "m_fFlags", fFlags);  			
 			SetEntPropVector(clientID, Prop_Data, "m_vecVelocity", vel);
 			SetEntPropVector(clientID, Prop_Data, "m_vecOrigin", pos);
