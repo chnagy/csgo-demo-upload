@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="756317e4-9bd8-4405-b3eb-7b12b0ed6c02" name="logochris" url="http://logochris.de/demo/">
+        <fileTransfer rootFolder="/home/logochris/webserver/csgo-demo/" accessType="SFTP" host="logochris.de" port="22" sshConfigId="f363dba1-f84a-49b5-961a-f07e5a3170eb" sshConfig="logochris@logochris.de:22 key" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
