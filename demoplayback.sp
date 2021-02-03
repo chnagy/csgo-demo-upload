@@ -109,82 +109,85 @@ methodmap Bot < StringMap {
 				if(playerID != -1){
 			    	JSONObject team = view_as<JSONObject>(teams.Get(teamID));
 					JSONArray players = view_as<JSONArray>(team.Get("players"));
-					JSONObject player = view_as<JSONObject>(players.Get(playerID));
-			    	
-			    	char name[32];
-			    	player.GetString("name", name, 32);
-
-					int fFlags = player.GetInt("fFlags");
-					int health = player.GetInt("health");
-					int armor = player.GetInt("armor");
-					bool helmet = player.GetBool("hasHelmet");
-					bool defuser = player.GetBool("hasDefuser");
-					int lifeState = player.GetInt("lifeState");
-					
-					char currWeapon[32];
-					player.GetString("currWeapon", currWeapon, 32);
-					
-					JSONArray weaponsJSON = view_as<JSONArray>(player.Get("weapons"));
-					
-					int weapon_count = weaponsJSON.Length;
-					
-					char weapons[10][32];
-					
-					for(int i=0; i<weapon_count; i++){
-						weaponsJSON.GetString(i, weapons[i], 32);
-
-					}
-
-					
-			    	float vel[3];
-			    	float pos[3];
-			    	float view[3];
-
-					JSONObject velJSON = view_as<JSONObject>(player.Get("vel"));
-					
-					vel[0] = velJSON.GetFloat("x");
-					vel[1] = velJSON.GetFloat("y");
-					vel[2] = velJSON.GetFloat("z");
-					
-					JSONObject posJSON = view_as<JSONObject>(player.Get("position"));
-					
-					pos[0] = posJSON.GetFloat("x");
-					pos[1] = posJSON.GetFloat("y");
-					pos[2] = posJSON.GetFloat("z");
-				
-					JSONObject viewJSON = view_as<JSONObject>(player.Get("view"));
-				
-					view[0] = viewJSON.GetFloat("pitch");
-					view[1] = viewJSON.GetFloat("yaw");
-				
-					this.SetString("name", name);
-					this.SetArray("vel",vel, 3);
-					this.SetArray("pos",pos, 3);
-					this.SetArray("view",view, 3);
-					this.SetValue("fFlags", fFlags);
-					this.SetValue("health", health);
-					this.SetValue("armor", armor);
-					this.SetValue("helmet", helmet);
-					this.SetValue("defuser", defuser);
-					this.SetValue("lifeState", lifeState);
-					this.SetString("currWeapon", currWeapon);
-					this.SetValue("weapon_count", weapon_count);
-					
-					for(int i=0;i<weapon_count;i++){
-						char intBuf[2];
-						IntToString(i, intBuf, 2);
-						char buf[10] = "weapons";
-						StrCat(buf, 10, intBuf);
-						this.SetString(buf, weapons[i]);
-					}
+					int playerCount = players.Length;
+					if(playerCount > playerID){
+						JSONObject player = view_as<JSONObject>(players.Get(playerID));
+				    	
+				    	char name[32];
+				    	player.GetString("name", name, 32);
+	
+						int fFlags = player.GetInt("fFlags");
+						int health = player.GetInt("health");
+						int armor = player.GetInt("armor");
+						bool helmet = player.GetBool("hasHelmet");
+						bool defuser = player.GetBool("hasDefuser");
+						int lifeState = player.GetInt("lifeState");
 						
-					delete viewJSON;
-					delete velJSON; 
-					delete posJSON;
+						char currWeapon[32];
+						player.GetString("currWeapon", currWeapon, 32);
+						
+						JSONArray weaponsJSON = view_as<JSONArray>(player.Get("weapons"));
+						
+						int weapon_count = weaponsJSON.Length;
+						
+						char weapons[10][32];
+						
+						for(int i=0; i<weapon_count; i++){
+							weaponsJSON.GetString(i, weapons[i], 32);
+	
+						}
+	
+						
+				    	float vel[3];
+				    	float pos[3];
+				    	float view[3];
+	
+						JSONObject velJSON = view_as<JSONObject>(player.Get("vel"));
+						
+						vel[0] = velJSON.GetFloat("x");
+						vel[1] = velJSON.GetFloat("y");
+						vel[2] = velJSON.GetFloat("z");
+						
+						JSONObject posJSON = view_as<JSONObject>(player.Get("position"));
+						
+						pos[0] = posJSON.GetFloat("x");
+						pos[1] = posJSON.GetFloat("y");
+						pos[2] = posJSON.GetFloat("z");
+					
+						JSONObject viewJSON = view_as<JSONObject>(player.Get("view"));
+					
+						view[0] = viewJSON.GetFloat("pitch");
+						view[1] = viewJSON.GetFloat("yaw");
+					
+						this.SetString("name", name);
+						this.SetArray("vel",vel, 3);
+						this.SetArray("pos",pos, 3);
+						this.SetArray("view",view, 3);
+						this.SetValue("fFlags", fFlags);
+						this.SetValue("health", health);
+						this.SetValue("armor", armor);
+						this.SetValue("helmet", helmet);
+						this.SetValue("defuser", defuser);
+						this.SetValue("lifeState", lifeState);
+						this.SetString("currWeapon", currWeapon);
+						this.SetValue("weapon_count", weapon_count);
+						
+						for(int i=0;i<weapon_count;i++){
+							char intBuf[2];
+							IntToString(i, intBuf, 2);
+							char buf[10] = "weapons";
+							StrCat(buf, 10, intBuf);
+							this.SetString(buf, weapons[i]);
+						}
+							
+						delete viewJSON;
+						delete velJSON; 
+						delete posJSON;
+						delete player; 
+						delete weaponsJSON;
+					}
 					delete team;
 					delete players; 
-					delete player; 
-					delete weaponsJSON;
 				}
 			}
 		}
@@ -245,16 +248,22 @@ methodmap Bot < StringMap {
 			
 			    if (item != -1) 
 			    { 
-			        char classname[32];
-			        GetEntityClassname(item, classname, sizeof(classname));
+			    	char classname[64];
+			    	classname = "weapon_";
+			        char buf[32];
+					int iDef = GetEntProp(item, Prop_Send, "m_iItemDefinitionIndex");
+					CSWeaponID wID = CS_ItemDefIndexToID(iDef);
+					CS_WeaponIDToAlias(wID, buf, sizeof(buf));
+					
+					StrCat(classname, 64, buf);
 			        
 			        int removeWeapon = 1;
 					
 					for(int j=0;j<weapon_count;j++){
-						PrintToServer("%s: Own weapon %s - need weapon %s",name, classname, weapons[j]);
+						//PrintToServer("%s: Own %s - need %s",name, classname, weapons[j]);
 						if (StrContains(classname,weapons[j]) != -1)
 						{
-							//PrintToServer("keep weapon  %s", weapons[j]);
+							//PrintToServer("keep  %s", weapons[j]);
 							keepWeapons[j] = 1;
 							removeWeapon = 0;
 						}
@@ -262,7 +271,7 @@ methodmap Bot < StringMap {
 					
 					if(removeWeapon == 1){
 						if(StrContains(classname,"knife") == -1){
-							PrintToServer("%s: remove weapon %s",name, classname);
+							//PrintToServer("%s: remove %s",name, classname);
 							RemovePlayerItem(clientID, item);
 							RemoveEdict(item);	
 						}
@@ -273,7 +282,7 @@ methodmap Bot < StringMap {
 			for(int i=0;i<weapon_count;i++){
 				if(keepWeapons[i] == 0){
 					if(StrContains(weapons[i],"knife") == -1){
-						PrintToServer("%s: give weapon %s",name, weapons[i]);
+						//PrintToServer("%s: give %s",name, weapons[i]);
 						this.GivePlayerItem2(clientID, weapons[i]);
 					}
 				}
