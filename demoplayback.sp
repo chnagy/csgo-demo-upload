@@ -3,7 +3,7 @@
 #include <ripext> 
 #include <sdktools>
 #include <dhooks>
-
+ 
 #pragma semicolon 1
 #pragma newdecls required
 
@@ -21,6 +21,7 @@ methodmap Bot < StringMap {
     	
     	this.SetValue("clientID", -1);
     	this.SetValue("playerID", -1);
+    	this.SetValue("teamID", -1);
     	this.SetArray("vel", vel, 3);
     	this.SetArray("pos", pos, 3);
     	this.SetArray("view", view, 3);
@@ -32,6 +33,9 @@ methodmap Bot < StringMap {
     	this.SetValue("armor", 100);
     	this.SetValue("helmet", 0);
     	this.SetValue("defuser", 0);
+    	this.SetValue("lifeState", 0);
+    	this.SetString("currWeapon", "");
+    	this.SetValue("weapon_count", 0);
     }
     
     public void SetClientID(int clientID) {
@@ -44,19 +48,40 @@ methodmap Bot < StringMap {
         return clientID;
     }    
     
+    public int GivePlayerItem2(int client, const char[] chItem)
+	{	
+		//int entity = GivePlayerItem(iClient, chItem);
+		//CSWeaponID id = CS_AliasToWeaponID(chItem);
+		//int iDef = CS_WeaponIDToItemDefIndex(id);
+		
+		//SetEntProp(entity, Prop_Send, "m_iItemDefinitionIndex", iDef);
+		
+		int team = GetClientTeam(client);
+		SetEntProp(client, Prop_Send, "m_iTeamNum", team == 3 ? 2 : 3);
+		int weapon = GivePlayerItem(client, chItem);
+		SetEntProp(client, Prop_Send, "m_iTeamNum", team);
+		return weapon;
+	} 
+    
     public void SetTick(JSONArray teams, int[] tbots_valid, int[] ctbots_valid){
     	int clientID;
     	int playerID;
-
+		int teamID;
+		
     	this.GetValue("clientID", clientID);
     	this.GetValue("playerID", playerID);
-    	
+    	this.GetValue("teamID", teamID);
     	    	
     	if(clientID > 0){  
     		//1=Spec
 			//2=Terrorist
 			//3=CT
-    		int teamID = GetClientTeam(clientID);
+
+			if(teamID == -1){
+    			teamID = GetClientTeam(clientID);
+    			this.SetValue("teamID", teamID);
+    		}
+    		
 			if(teamID > 1){
 		    	if(playerID == -1){
 		    		for(int i=0;i<5;i++){
@@ -96,6 +121,21 @@ methodmap Bot < StringMap {
 					bool defuser = player.GetBool("hasDefuser");
 					int lifeState = player.GetInt("lifeState");
 					
+					char currWeapon[32];
+					player.GetString("currWeapon", currWeapon, 32);
+					
+					JSONArray weaponsJSON = view_as<JSONArray>(player.Get("weapons"));
+					
+					int weapon_count = weaponsJSON.Length;
+					
+					char weapons[10][32];
+					
+					for(int i=0; i<weapon_count; i++){
+						weaponsJSON.GetString(i, weapons[i], 32);
+
+					}
+
+					
 			    	float vel[3];
 			    	float pos[3];
 			    	float view[3];
@@ -127,13 +167,24 @@ methodmap Bot < StringMap {
 					this.SetValue("helmet", helmet);
 					this.SetValue("defuser", defuser);
 					this.SetValue("lifeState", lifeState);
+					this.SetString("currWeapon", currWeapon);
+					this.SetValue("weapon_count", weapon_count);
 					
+					for(int i=0;i<weapon_count;i++){
+						char intBuf[2];
+						IntToString(i, intBuf, 2);
+						char buf[10] = "weapons";
+						StrCat(buf, 10, intBuf);
+						this.SetString(buf, weapons[i]);
+					}
+						
 					delete viewJSON;
 					delete velJSON; 
 					delete posJSON;
 					delete team;
 					delete players; 
 					delete player; 
+					delete weaponsJSON;
 				}
 			}
 		}
@@ -146,13 +197,14 @@ methodmap Bot < StringMap {
     	float view[3];
     	char name[32];
     	char currName[32];
+    	char currWeapon[32];
 		int fFlags;
     	int health;
     	int armor;
     	bool helmet;
     	bool defuser;
     	int lifeState;
-    	
+    	int weapon_count;
     	
     	this.GetString("name", name, 32);
     	this.GetValue("clientID", clientID);
@@ -165,6 +217,8 @@ methodmap Bot < StringMap {
     	this.GetValue("helmet", helmet);
     	this.GetValue("defuser", defuser);
     	this.GetValue("lifeState", lifeState);
+    	this.GetValue("weapon_count", weapon_count);
+    	this.GetString("currWeapon", currWeapon, 32);
     	
     	if(clientID > 0){ 	
 			GetClientName(clientID, currName, 32);	
@@ -172,6 +226,59 @@ methodmap Bot < StringMap {
 			if(StrContains(currName,name) == -1){
 				SetClientName(clientID, name);
 			}
+	
+			char weapons[10][32];
+			for(int i=0;i<weapon_count;i++){
+				char intBuf[2];
+				IntToString(i, intBuf, 2);
+				char buf[10] = "weapons";
+				StrCat(buf, 10, intBuf);
+				this.GetString(buf, weapons[i],32);
+			}
+			
+			
+			int size = GetEntPropArraySize(clientID, Prop_Send, "m_hMyWeapons");
+    		int keepWeapons[10];
+			for (int i = 0; i < size; i++) 
+			{ 
+			    int item = GetEntPropEnt(clientID, Prop_Send, "m_hMyWeapons", i); 
+			
+			    if (item != -1) 
+			    { 
+			        char classname[32];
+			        GetEntityClassname(item, classname, sizeof(classname));
+			        
+			        int removeWeapon = 1;
+					
+					for(int j=0;j<weapon_count;j++){
+						PrintToServer("%s: Own weapon %s - need weapon %s",name, classname, weapons[j]);
+						if (StrContains(classname,weapons[j]) != -1)
+						{
+							//PrintToServer("keep weapon  %s", weapons[j]);
+							keepWeapons[j] = 1;
+							removeWeapon = 0;
+						}
+					}			
+					
+					if(removeWeapon == 1){
+						if(StrContains(classname,"knife") == -1){
+							PrintToServer("%s: remove weapon %s",name, classname);
+							RemovePlayerItem(clientID, item);
+							RemoveEdict(item);	
+						}
+					}
+			    } 
+			}  
+			
+			for(int i=0;i<weapon_count;i++){
+				if(keepWeapons[i] == 0){
+					if(StrContains(weapons[i],"knife") == -1){
+						PrintToServer("%s: give weapon %s",name, weapons[i]);
+						this.GivePlayerItem2(clientID, weapons[i]);
+					}
+				}
+			}
+						
 			
 			if(lifeState != 0 && IsPlayerAlive(clientID)){
 				ForcePlayerSuicide(clientID);
@@ -193,7 +300,8 @@ methodmap Bot < StringMap {
 			} else {
 				SetEntProp(clientID, Prop_Send, "m_bHasDefuser", 0);
 			}
-						
+		
+
 			SetEntityHealth(clientID, health);
 			SetEntProp(clientID, Prop_Data, "m_ArmorValue", armor);
 			SetEntProp(clientID, Prop_Data, "m_fFlags", fFlags);  			
@@ -201,7 +309,10 @@ methodmap Bot < StringMap {
 			SetEntPropVector(clientID, Prop_Data, "m_vecOrigin", pos);
 			TeleportEntity(clientID, NULL_VECTOR, view, NULL_VECTOR);
 		}
-    }
+			
+	}	
+	
+
 }
 
 
@@ -248,6 +359,7 @@ public void OnPluginStart()
 	RegConsoleCmd("sm_dp_tick", SetTick, "Set Current Tick");
 	RegConsoleCmd("sm_dp_run", ToggleRun, "Starts/Pauses the playback");
 	RegConsoleCmd("sm_dp_init", SetupBots, "Initializes Bots");
+	RegConsoleCmd("sm_dp_next", NextTick, "Executes next Tick");
 	
 	httpClient.Get("demo/10", OnNextTick); 	
 	
@@ -275,7 +387,7 @@ public Action ToggleRun(int client, int args){
 
 public Action SetTick(int client, int args){
 	if(args < 1 || args > 1) {
-		ReplyToCommand(client, "[SM] Usage: sm_dp_tick <int>");
+		ReplyToCommand(client, "[SM] current tick %d", tick);
 		return Plugin_Handled;
 	}
 	
@@ -312,6 +424,16 @@ public Action SetupBots(int client, int args){
 	return Plugin_Handled;
 }
 
+public Action NextTick(int client, int args){
+	
+	GetNextTick();
+	
+	for(int i=0;i<10;i++){
+		bots[i].ApplyTick();
+	}
+	
+	return Plugin_Handled;
+}
 
 void OnNextTick(HTTPResponse response, any value)
 {        
@@ -336,10 +458,14 @@ void OnNextTick(HTTPResponse response, any value)
 	tick += 1;
 }
 
+
 public void OnGameFrame() {
 
 	if(running){
 		GetNextTick();
+		
+		//PrintToServer("NextTick");
+		//bots[0].ApplyTick();
 		
 		for(int i=0;i<10;i++){
 			bots[i].ApplyTick();
