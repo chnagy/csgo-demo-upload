@@ -3,7 +3,7 @@ let path = require('path');
 
 let fs = require("fs");
 let demofile = require("demofile");
-
+const _ = require('lodash');
 let summary;
 
 parseDemoFile("test.dem")
@@ -37,8 +37,6 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-let counter = 0;
-
 module.exports = app;
 
 function parseDemoFile(path) {
@@ -51,25 +49,41 @@ function parseDemoFile(path) {
 
     demo.on("tickstart", e => {
       summary.snapshots[e+1] = new DemoSnapshot(demo);
-      counter += 1;
     });
 
     demo.on("tickend", e => {
       summary.snapshots[e] = new DemoSnapshot(demo);
-      counter += 1;
+    });
+
+    demo.gameEvents.on("weapon_fire", e => {
+      var tick = demo.currentTick;
+      if (summary.snapshots[tick-1] !== undefined) {
+        summary.snapshots[tick-1].AddEvent("weapon_fire",e);
+      }
+    });
+
+    demo.gameEvents.on("player_hurt", e => {
+      var tick = demo.currentTick;
+      if (summary.snapshots[tick-1] !== undefined) {
+        summary.snapshots[tick-1].AddEvent("player_hurt",e);
+      }
     });
 
     demo.parse(buffer);
   });
 }
 
+let distance3 = (p1, p2) => {
+  return Math.sqrt( Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2) + Math.pow(p2.z - p1.z, 2) );
+};
 
 class Demo {
   constructor(demo) {
     this.tickrate = demo.tickRate;
     this.totalTicks = demo.header.playbackTicks;
-    this.map = demo.mapName;
+    this.map = demo.header.mapName;
     this.snapshots = {};
+
   }
 
   toJSON() {
@@ -82,14 +96,26 @@ class Demo {
 }
 
 class DemoSnapshot {
+
   constructor(demo) {
+    this.currentTick = demo.currentTick;
     this.currentTime = demo.currentTime;
-    this.teams = []
+    this.teams = [];
+    this.events = {};
+
     if(demo.teams.length > 0) {
       let ct = new Team(demo.teams[3]);
       let t = new Team(demo.teams[2]);
       this.teams.push(ct);
       this.teams.push(t);
+    }
+  }
+
+  AddEvent(type,event){
+    if(this.events[type] !== undefined) {
+      this.events[type].events.push(event);
+    } else {
+      this.events[type] = new Events(type,event);
     }
   }
 }
@@ -105,9 +131,18 @@ class Team {
   }
 }
 
+class Events {
+  constructor(name, event) {
+    this.name = name;
+    this.events = [];
+    this.events.push(event);
+  }
+}
+
 class Player {
   constructor(player) {
     this.name = player.name;
+    this.userid = player.userId;
     this.kills = player.kills;
     this.deaths = player.deaths;
     this.assists = player.assists;
@@ -121,7 +156,7 @@ class Player {
     this.isDucked = player.isDucked;
     this.fFlags = player.getProp("DT_BasePlayer","m_fFlags");
     this.weapons = player.weapons.map((obj) => {
-      return obj.itemName;
+      return new Weapon(obj);
     });
     this.currWeapon = new Weapon(player.weapon);
     this.hasDefuser = player.hasDefuser;
@@ -132,6 +167,7 @@ class Player {
     this.money = player.account;
     this.view = player.eyeAngles;
     this.isDefusing = player.isDefusing;
+
   }
 }
 
@@ -142,7 +178,7 @@ class Weapon {
       this.ammo = 0;
     }
     else {
-      this.currWeapon = weapon.itemName;
+      this.currWeapon = weapon.className;
       if(weapon.props.hasOwnProperty("DT_BaseCSGrenade")){
         this.isGrenade = true;
         this.throwStrength = weapon.getProp("DT_BaseCSGrenade","m_flThrowStrength");
@@ -154,6 +190,7 @@ class Weapon {
         this.ammo = weapon.reserveAmmo;
         this.burst = weapon.getProp("DT_WeaponCSBase","m_bBurstMode");
         this.silencer = weapon.getProp("DT_WeaponCSBase","m_bSilencerOn");
+
       }
     }
   }
